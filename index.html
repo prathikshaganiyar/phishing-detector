@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>PhishGuard AI | Phishing URL Detector</title>
+
+    <style>
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            min-height: 100vh;
+            color: white;
+            background:
+                radial-gradient(circle at 20% 20%, rgba(0, 255, 200, 0.12), transparent 30%),
+                radial-gradient(circle at 80% 80%, rgba(90, 70, 255, 0.15), transparent 30%),
+                #070b16;
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 30px;
+            overflow-x: hidden;
+        }
+
+        /* Background grid */
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+
+            background-image:
+                linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+
+            background-size: 40px 40px;
+            pointer-events: none;
+        }
+
+        /* Floating glow */
+
+        .glow {
+            position: fixed;
+            width: 350px;
+            height: 350px;
+            border-radius: 50%;
+            background: #00ffc8;
+            filter: blur(150px);
+            opacity: 0.08;
+            top: -100px;
+            left: -100px;
+        }
+
+        .glow2 {
+            position: fixed;
+            width: 350px;
+            height: 350px;
+            border-radius: 50%;
+            background: #6c63ff;
+            filter: blur(150px);
+            opacity: 0.08;
+            bottom: -100px;
+            right: -100px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 850px;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Header */
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border: 1px solid rgba(0,255,200,0.3);
+            background: rgba(0,255,200,0.06);
+            color: #00ffc8;
+            border-radius: 30px;
+            font-size: 13px;
+            margin-bottom: 18px;
+            letter-spacing: 1px;
+        }
+
+        .shield {
+            font-size: 65px;
+            margin-bottom: 10px;
+            animation: float 3s ease-in-out infinite;
+            filter: drop-shadow(0 0 20px rgba(0,255,200,0.5));
+        }
+
+        @keyframes float {
+            0%,100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-8px);
+            }
+        }
+
+        h1 {
+            font-size: 42px;
+            margin-bottom: 10px;
+            letter-spacing: -1px;
+        }
+
+        .gradient {
+            background: linear-gradient(90deg, #00ffc8, #6c63ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: #8992aa;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        /* Main card */
+
+        .card {
+            background: rgba(14, 20, 38, 0.88);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 25px;
+            padding: 35px;
+            box-shadow:
+                0 30px 80px rgba(0,0,0,0.45),
+                inset 0 1px rgba(255,255,255,0.04);
+
+            backdrop-filter: blur(20px);
+        }
+
+        .label {
+            color: #aab3c9;
+            font-size: 13px;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        /* Input */
+
+        .input-wrapper {
+            display: flex;
+            background: #090e1d;
+            border: 1px solid #242c43;
+            border-radius: 14px;
+            padding: 6px;
+            transition: 0.3s;
+        }
+
+        .input-wrapper:focus-within {
+            border-color: #00ffc8;
+            box-shadow: 0 0 25px rgba(0,255,200,0.12);
+        }
+
+        .url-icon {
+            padding: 13px;
+            font-size: 20px;
+        }
+
+        input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: white;
+            font-size: 16px;
+            min-width: 0;
+        }
+
+        input::placeholder {
+            color: #59627a;
+        }
+
+        button {
+            border: none;
+            border-radius: 10px;
+            padding: 13px 24px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+
+            color: #06100e;
+
+            background: linear-gradient(
+                135deg,
+                #00ffc8,
+                #00d5ff
+            );
+
+            transition: 0.25s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,255,200,0.25);
+        }
+
+        button:active {
+            transform: scale(0.97);
+        }
+
+        /* Scan animation */
+
+        .scanning {
+            display: none;
+            text-align: center;
+            padding: 35px;
+        }
+
+        .scanner {
+            width: 75px;
+            height: 75px;
+            margin: auto;
+            border-radius: 50%;
+            border: 3px solid rgba(0,255,200,0.15);
+            border-top-color: #00ffc8;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .scan-text {
+            margin-top: 15px;
+            color: #00ffc8;
+            font-size: 14px;
+        }
+
+        /* Result */
+
+        #resultCard {
+            display: none;
+            margin-top: 25px;
+            padding: 25px;
+            border-radius: 18px;
+            animation: appear 0.4s ease;
+        }
+
+        @keyframes appear {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .safe {
+            background: rgba(0,255,150,0.07);
+            border: 1px solid rgba(0,255,150,0.3);
+        }
+
+        .danger {
+            background: rgba(255,60,80,0.07);
+            border: 1px solid rgba(255,60,80,0.3);
+        }
+
+        .result-top {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .result-icon {
+            font-size: 45px;
+        }
+
+        .result-title {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .safe .result-title {
+            color: #00ff9d;
+        }
+
+        .danger .result-title {
+            color: #ff5267;
+        }
+
+        .url-display {
+            margin-top: 15px;
+            background: rgba(0,0,0,0.25);
+            padding: 12px;
+            border-radius: 10px;
+            color: #aab3c9;
+            font-size: 13px;
+            word-break: break-all;
+        }
+
+        /* Confidence */
+
+        .confidence {
+            margin-top: 20px;
+        }
+
+        .confidence-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 13px;
+            color: #9ca5bb;
+        }
+
+        .confidence-value {
+            color: white;
+            font-weight: bold;
+        }
+
+        .bar {
+            width: 100%;
+            height: 8px;
+            background: #20273b;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            width: 0%;
+            height: 100%;
+            border-radius: 10px;
+            transition: width 1s ease;
+        }
+
+        .safe .bar-fill {
+            background: #00ff9d;
+        }
+
+        .danger .bar-fill {
+            background: #ff5267;
+        }
+
+        /* Features */
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-top: 18px;
+        }
+
+        .feature {
+            padding: 18px;
+            border-radius: 14px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            text-align: center;
+        }
+
+        .feature-icon {
+            font-size: 25px;
+            margin-bottom: 8px;
+        }
+
+        .feature-title {
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .feature-text {
+            font-size: 11px;
+            color: #707a91;
+            margin-top: 5px;
+        }
+
+        /* Footer */
+
+        .footer {
+            text-align: center;
+            margin-top: 25px;
+            color: #59627a;
+            font-size: 12px;
+        }
+
+        .ai {
+            color: #00ffc8;
+        }
+
+        /* Mobile */
+
+        @media (max-width: 600px) {
+
+            body {
+                padding: 15px;
+            }
+
+            h1 {
+                font-size: 32px;
+            }
+
+            .card {
+                padding: 22px;
+            }
+
+            .input-wrapper {
+                flex-wrap: wrap;
+            }
+
+            input {
+                width: 70%;
+            }
+
+            button {
+                width: 100%;
+                margin-top: 8px;
+            }
+
+            .features {
+                grid-template-columns: 1fr;
+            }
+        }
+
+    </style>
+</head>
+
+<body>
+
+    <div class="glow"></div>
+    <div class="glow2"></div>
+
+    <div class="container">
+
+        <!-- Header -->
+
+        <div class="header">
+
+            <div class="badge">
+                🔐 AI-POWERED CYBER SECURITY
+            </div>
+
+            <div class="shield">
+                🛡️
+            </div>
+
+            <h1>
+                Phish<span class="gradient">Guard AI</span>
+            </h1>
+
+            <p class="subtitle">
+                Detect malicious and phishing URLs using
+                machine learning technology.
+            </p>
+
+        </div>
+
+
+        <!-- Main Card -->
+
+        <div class="card">
+
+            <label class="label">
+                ENTER A URL TO ANALYZE
+            </label>
+
+            <div class="input-wrapper">
+
+                <span class="url-icon">🔗</span>
+
+                <input
+                    type="text"
+                    id="urlInput"
+                    placeholder="https://example.com"
+                    onkeypress="handleEnter(event)"
+                >
+
+                <button onclick="checkURL()">
+                    🔍 Scan URL
+                </button>
+
+            </div>
+
+
+            <!-- Scanning -->
+
+            <div class="scanning" id="scanning">
+
+                <div class="scanner"></div>
+
+                <div class="scan-text">
+                    AI is analyzing the URL...
+                </div>
+
+            </div>
+
+
+            <!-- Result -->
+
+            <div id="resultCard">
+
+                <div class="result-top">
+
+                    <div class="result-icon" id="resultIcon">
+                        🛡️
+                    </div>
+
+                    <div>
+                        <div class="result-title" id="resultTitle">
+                            Safe
+                        </div>
+
+                        <div style="color:#8992aa;font-size:13px;margin-top:4px;">
+                            Security analysis completed
+                        </div>
+                    </div>
+
+                </div>
+
+
+                <div class="url-display" id="urlDisplay">
+                </div>
+
+
+                <div class="confidence">
+
+                    <div class="confidence-header">
+
+                        <span>
+                            AI Confidence
+                        </span>
+
+                        <span
+                            class="confidence-value"
+                            id="confidenceText">
+                            0%
+                        </span>
+
+                    </div>
+
+                    <div class="bar">
+
+                        <div
+                            class="bar-fill"
+                            id="confidenceBar">
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- Features -->
+
+            <div class="features">
+
+                <div class="feature">
+
+                    <div class="feature-icon">
+                        🤖
+                    </div>
+
+                    <div class="feature-title">
+                        Machine Learning
+                    </div>
+
+                    <div class="feature-text">
+                        AI-based URL classification
+                    </div>
+
+                </div>
+
+
+                <div class="feature">
+
+                    <div class="feature-icon">
+                        ⚡
+                    </div>
+
+                    <div class="feature-title">
+                        Fast Detection
+                    </div>
+
+                    <div class="feature-text">
+                        Analyze URLs in seconds
+                    </div>
+
+                </div>
+
+
+                <div class="feature">
+
+                    <div class="feature-icon">
+                        🔒
+                    </div>
+
+                    <div class="feature-title">
+                        Security First
+                    </div>
+
+                    <div class="feature-text">
+                        Identify suspicious links
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="footer">
+
+            Powered by <span class="ai">Machine Learning</span>
+            • PhishGuard AI
+
+        </div>
+
+    </div>
+
+
+    <script>
+
+        function handleEnter(event) {
+
+            if (event.key === "Enter") {
+                checkURL();
+            }
+
+        }
+
+
+        async function checkURL() {
+
+            const url =
+                document.getElementById("urlInput").value.trim();
+
+            const resultCard =
+                document.getElementById("resultCard");
+
+            const scanning =
+                document.getElementById("scanning");
+
+            const resultTitle =
+                document.getElementById("resultTitle");
+
+            const resultIcon =
+                document.getElementById("resultIcon");
+
+            const confidenceText =
+                document.getElementById("confidenceText");
+
+            const confidenceBar =
+                document.getElementById("confidenceBar");
+
+            const urlDisplay =
+                document.getElementById("urlDisplay");
+
+
+            if (!url) {
+
+                alert("Please enter a URL to scan.");
+
+                return;
+
+            }
+
+
+            // Hide old result
+
+            resultCard.style.display = "none";
+
+            // Show scanning
+
+            scanning.style.display = "block";
+
+
+            try {
+
+                const response = await fetch(
+                    "http://127.0.0.1:5000/predict",
+                    {
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+
+                        body: JSON.stringify({
+                            url: url
+                        })
+                    }
+                );
+
+
+                const data = await response.json();
+
+
+                // Small delay for scanning animation
+
+                await new Promise(
+                    resolve => setTimeout(resolve, 800)
+                );
+
+
+                scanning.style.display = "none";
+
+                resultCard.style.display = "block";
+
+
+                const confidence =
+                    data.confidence * 100;
+
+
+                confidenceText.innerText =
+                    confidence.toFixed(1) + "%";
+
+
+                confidenceBar.style.width =
+                    confidence + "%";
+
+
+                urlDisplay.innerText =
+                    url;
+
+
+                if (data.prediction === "Phishing") {
+
+                    resultCard.className = "danger";
+
+                    resultIcon.innerText = "🚨";
+
+                    resultTitle.innerText =
+                        "Phishing Detected";
+
+                }
+
+                else {
+
+                    resultCard.className = "safe";
+
+                    resultIcon.innerText = "🛡️";
+
+                    resultTitle.innerText =
+                        "URL Appears Safe";
+
+                }
+
+            }
+
+            catch (error) {
+
+                scanning.style.display = "none";
+
+                resultCard.style.display = "block";
+
+                resultCard.className = "danger";
+
+                resultIcon.innerText = "⚠️";
+
+                resultTitle.innerText =
+                    "Server Connection Error";
+
+                urlDisplay.innerText =
+                    "Make sure your Flask backend is running on port 5000.";
+
+            }
+
+        }
+
+    </script>
+
+</body>
+</html>
