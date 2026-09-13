@@ -1,0 +1,9 @@
+app.py
+requirements.txt
+runtime.txt
+*.pkl
+*.csv
+*.ipynb
+venv/
+__pycache__/
+.ipynb_checkpoints/
